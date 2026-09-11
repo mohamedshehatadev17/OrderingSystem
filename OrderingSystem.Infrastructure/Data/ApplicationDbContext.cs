@@ -16,6 +16,7 @@ namespace OrderingSystem.Infrastructure.Data
         }
 
         public DbSet<Order> Orders { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -26,6 +27,10 @@ namespace OrderingSystem.Infrastructure.Data
                 .WithMany(c => c.Orders)
                 .HasForeignKey(o => o.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Order>()
+                .Property(x => x.Amount)
+                .HasPrecision(18, 2);
         }
     }
 }

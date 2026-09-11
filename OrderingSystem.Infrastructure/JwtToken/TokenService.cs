@@ -48,5 +48,12 @@ namespace OrderingSystem.Infrastructure.JwtToken
         }
 
         public string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        public string GenerateRefreshTokenHash(string token)
+        {
+            var bytes = SHA256.HashData(
+                Encoding.UTF8.GetBytes(token));
+
+            return Convert.ToBase64String(bytes);
+        }
     }
 }

@@ -13,5 +13,7 @@ namespace OrderingSystem.Domain.Entities
         public DateTime? BannedUntil { get; set; }
 
         public List<Order> Orders { get; set; } = new();
+        public List<RefreshToken> RefreshTokens { get; set; } = new();
+        
     }
 }

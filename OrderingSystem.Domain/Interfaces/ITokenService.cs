@@ -9,5 +9,6 @@ namespace OrderingSystem.Domain.Interfaces
     {
         (string Token, DateTime ExpiresAtUtc) GenerateAccessToken(Customer customer, IEnumerable<string> roles);
         string GenerateRefreshToken();
+        string GenerateRefreshTokenHash(string token);
     }
 }

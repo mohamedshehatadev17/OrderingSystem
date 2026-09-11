@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using OrderingSystem.API.DTOs;
 using OrderingSystem.API.DTOs.authDtos;
 using OrderingSystem.Domain.Entities;
@@ -15,9 +16,12 @@ namespace OrderingSystem.API.Controllers
     public class AuthController(
     UserManager<Customer> userManager,
     SignInManager<Customer> signInManager,
-    ITokenService tokens,
-    ILogger<AuthController> logger) : ControllerBase
+    ITokenService tokensService,
+    ILogger<AuthController> logger,IRefreshTokenRepository refreshTokenRepository) : ControllerBase
     {
+        private readonly ITokenService _tokensService=tokensService;
+        private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
+
         /// <summary>Registers a new customer.</summary>
         /// <response code="201">Customer created, tokens returned.</response>
         /// <response code="400">Validation failed (includes weak-password errors from Identity).</response>
@@ -58,8 +62,17 @@ namespace OrderingSystem.API.Controllers
             await userManager.AddToRoleAsync(user, nameof(Customer));
             var roles = await userManager.GetRolesAsync(user);
 
-            var (accessToken, expiresAtUtc) = tokens.GenerateAccessToken(user, roles);
-            var refreshToken = tokens.GenerateRefreshToken();
+            var (accessToken, expiresAtUtc) = _tokensService.GenerateAccessToken(user, roles);
+            var refreshToken = _tokensService.GenerateRefreshToken();
+
+            var refreshTokenEntity = new RefreshToken
+            {
+                TokenHash = _tokensService.GenerateRefreshTokenHash(refreshToken),
+                CustomerId = user.Id,
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(30)
+            };
+
+            await _refreshTokenRepository.AddAsync(refreshTokenEntity);
 
             logger.LogInformation("Customer {CustomerId} registered.", user.Id);
 
@@ -129,11 +142,20 @@ namespace OrderingSystem.API.Controllers
             }
 
             var roles = await userManager.GetRolesAsync(user);
-            var (accessToken, expiresAtUtc) = tokens.GenerateAccessToken(user, roles);
-            var refreshToken = tokens.GenerateRefreshToken();
+            var (accessToken, expiresAtUtc) = _tokensService.GenerateAccessToken(user, roles);
+            var refreshToken = _tokensService.GenerateRefreshToken();
 
             logger.LogInformation("Customer {CustomerId} logged in.", user.Id);
 
+
+            var refreshTokenEntity = new RefreshToken
+            {
+                TokenHash = _tokensService.GenerateRefreshTokenHash(refreshToken),
+                CustomerId = user.Id,
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(30)
+            };
+
+            await _refreshTokenRepository.AddAsync(refreshTokenEntity);
             return Ok(new AuthResponseDto
             {
                 CustomerId = user.Id,
@@ -142,6 +164,83 @@ namespace OrderingSystem.API.Controllers
                 AccessToken = accessToken,
                 ExpiresAtUtc = expiresAtUtc,
                 RefreshToken = refreshToken
+            });
+        }
+        [HttpPost("refresh")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request)
+        {
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
+
+            var tokenHash = _tokensService.GenerateRefreshTokenHash(request.RefreshToken);
+
+            var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash);
+
+            if (refreshToken is null)
+            {
+                return Unauthorized(new ApiErrorResponse
+                {
+                    Message = "Invalid refresh token."
+                });
+            }
+
+            if (!refreshToken.IsActive)
+            {
+                return Unauthorized(new ApiErrorResponse
+                {
+                    Message = "Refresh token is expired or revoked."
+                });
+            }
+
+            var customer = refreshToken.Customer;
+
+            if (customer.BannedUntil is { } bannedUntil && bannedUntil > DateTime.UtcNow)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new ApiErrorResponse
+                    {
+                        Message =$"Account temporarily restricted until {bannedUntil:O} UTC."
+                    });
+            }
+
+            var roles = await userManager.GetRolesAsync(customer);
+
+            // Generate new access token
+            var (accessToken, expiresAtUtc) =_tokensService.GenerateAccessToken(customer, roles);
+
+            // Generate new refresh token
+            var newRefreshToken = _tokensService.GenerateRefreshToken();
+
+            var newRefreshTokenEntity = new RefreshToken
+            {
+                TokenHash = _tokensService.GenerateRefreshTokenHash(newRefreshToken),
+                CustomerId = customer.Id,
+                ExpiresAtUtc =DateTime.UtcNow.AddDays(30)
+            };
+
+            // Revoke old token
+            refreshToken.RevokedAtUtc = DateTime.UtcNow;
+
+            // Save new token
+            await _refreshTokenRepository.AddAsync(newRefreshTokenEntity);
+
+            logger.LogInformation(
+                "Refresh token rotated for customer {CustomerId}.",
+                customer.Id);
+
+            return Ok(new AuthResponseDto
+            {
+                CustomerId = customer.Id,
+                Name = customer.Name,
+                Email = customer.Email!,
+                AccessToken = accessToken,
+                ExpiresAtUtc = expiresAtUtc,
+                RefreshToken = newRefreshToken
             });
         }
     }
