@@ -17,5 +17,6 @@ namespace OrderingSystem.Domain.Entities
         public decimal Amount { get; set; }
         public Customer Customer { get; set; }
         public bool IsDeleted { get; set; } = false;
+
     }
 }

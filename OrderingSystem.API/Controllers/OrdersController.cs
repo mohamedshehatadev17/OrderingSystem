@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OrderingSystem.API.DTOs.orderDtos;
@@ -10,6 +11,7 @@ namespace OrderingSystem.API.Controllers
 {
     [Route("api/orders")]
     [ApiController]
+    [Authorize]
     public class OrdersController(IOrderRepository orderRepository,ICustomerRepository customerRepository) : ControllerBase
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -17,14 +19,16 @@ namespace OrderingSystem.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetOrders()
         {
-            var orders = await _orderRepository.GetAllAsync();
+            int customerId = GetCustomerIdFromClaims();
+            var orders = await _orderRepository.GetAllAsync(or =>or.CustomerId== customerId && !or.IsDeleted);
             return Ok(orders);
         }
-        [HttpGet("{customerId}")]
+        [Authorize(Roles ="Admin")]
+        [HttpGet("customers/{customerId}")]
         public async Task<IActionResult> GetCustomerOrders(int customerId)
         {
             var orders = await _orderRepository.GetAllAsync(
-                o => o.CustomerId == customerId,
+                o => o.CustomerId == customerId && !o.IsDeleted,
                 o => o.Customer);
 
             return Ok(orders.Select(o => new orderResponse
@@ -39,7 +43,8 @@ namespace OrderingSystem.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrder(int id)
         {
-            var order = await _orderRepository.GetByIdAsync(id);
+            int customerId = GetCustomerIdFromClaims();
+            var order = await _orderRepository.GetByIdAsync(id,o=>o.CustomerId==customerId && !o.IsDeleted);
             if (order == null)
                 return NotFound();
             return Ok(new orderResponse
@@ -57,10 +62,7 @@ namespace OrderingSystem.API.Controllers
             if (request == null)
                 return BadRequest();
 
-            var customerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(customerId, out var customerIdInt))
-                return BadRequest("Invalid customer ID");
+            int customerIdInt = GetCustomerIdFromClaims(); 
 
             var customer = await _customerRepository.GetByIdAsync(customerIdInt);
 
@@ -116,17 +118,17 @@ namespace OrderingSystem.API.Controllers
                     Amount = createdOrder.Amount
                 });
         }
-        [HttpDelete("{customerId}")]
-        public async Task<IActionResult> DeleteOrder(int customerId)
+        [HttpDelete("{orderId}")]
+        public async Task<IActionResult> DeleteOrder(int orderId)
         {
-            var order = await _orderRepository.GetByIdAsync(customerId);
+            int customerId = GetCustomerIdFromClaims();
+            var order = await _orderRepository.GetByIdAsync(orderId,o=>o.CustomerId == customerId);
             if (order == null)
                 return NotFound();
-            var deleted = await _orderRepository.DeleteWhereAsync(c=>c.CustomerId == customerId);
-            if (!deleted)
-                return StatusCode(StatusCodes.Status500InternalServerError, "Error deleting order");
             order.IsDeleted = true;
-            _orderRepository.UpdateAsync(order);
+            var updated =  _orderRepository.UpdateAsync(order);
+            if (!updated)
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error deleting order");
             return NoContent();
         }
         [HttpPut("{id}")]
@@ -134,17 +136,28 @@ namespace OrderingSystem.API.Controllers
         {
             if (order == null || id < 1)
                 return BadRequest();
-            var existingOrder = await _orderRepository.GetByIdAsync(id);
+            int customerId = GetCustomerIdFromClaims();
+            var existingOrder = await _orderRepository.GetByIdAsync(id,o=>o.CustomerId==customerId);
             if (existingOrder == null)
                 return NotFound();
            
             existingOrder.OrderStatus = order.Status;
             existingOrder.Amount = order.Amount;
             existingOrder.UpdatedAt = DateTime.Now;
+            existingOrder.IsDeleted = order.IsDeleted;
             var updated = _orderRepository.UpdateAsync(existingOrder);
             if (!updated)
                 return StatusCode(StatusCodes.Status500InternalServerError, "Error updating order");
             return NoContent();
+        }
+        private int GetCustomerIdFromClaims()
+        {
+            var customerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(customerId, out var customerIdInt))
+                return 0;
+
+            return customerIdInt;
         }
 
     }

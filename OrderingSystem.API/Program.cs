@@ -1,3 +1,4 @@
+using Microsoft.OpenApi;
 using OrderingSystem.Infrastructure;
 using OrderingSystem.Infrastructure.Identity;
 
@@ -10,8 +11,24 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 // Add Swagger
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token"
+    });
 
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+});
 // Register infrastructure services
 builder.Services.RegisterInfrastructureServices(builder.Configuration);
 
@@ -24,10 +41,9 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
   {
         app.MapOpenApi();
-        app.UseSwagger();
-        app.UseSwaggerUI();
   }
-
+app.UseSwagger();
+app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

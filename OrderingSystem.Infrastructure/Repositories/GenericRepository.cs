@@ -30,21 +30,13 @@ namespace OrderingSystem.Infrastructure.Repositories
             _context.SaveChanges();
             return true;
         }
-        public async Task<bool> DeleteWhereAsync(Expression<Func<T, bool>> predicate)
-        {
-            var affectedRows = await _context.Set<T>()
-                .Where(predicate)
-                .ExecuteDeleteAsync();
-
-            return affectedRows > 0;
-        }
 
         public async Task<IReadOnlyList<T>> GetAllAsync()
         {
             return await _context.Set<T>().AsNoTracking().ToListAsync();
         }
 
-        public async Task<IReadOnlyList<T>> GetAllAsync(Expression<Func<T, bool>>? predicate = null,params Expression<Func<T, object>>[] includes)
+        public async Task<IReadOnlyList<T>> GetAllAsync(Expression<Func<T, bool>>? predicate = null,params Expression<Func<T, object>>?[] includes)
         {
             IQueryable<T> query = _context.Set<T>();
 
@@ -62,9 +54,11 @@ namespace OrderingSystem.Infrastructure.Repositories
             return await _context.Set<T>().FindAsync(id);
         }
 
-        public async Task<T> GetByIdAsync(int id, params Expression<Func<T, object>>[] includes)
+        public async Task<T> GetByIdAsync(int id, Expression<Func<T, bool>>? predicate = null, params Expression<Func<T, object>>[] includes)
         {
             var query = _context.Set<T>().AsQueryable();
+            if (predicate != null)
+                query = query.Where(predicate);
             foreach (var item in includes)
             {
                 query = query.Include(item);

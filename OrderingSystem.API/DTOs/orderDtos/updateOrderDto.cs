@@ -6,5 +6,6 @@ namespace OrderingSystem.API.DTOs.orderDtos
     {
         public decimal Amount { get; set; }
         public OrderStatus Status { get; set; }
+        public bool IsDeleted { get; set; }=false;
     }
 }

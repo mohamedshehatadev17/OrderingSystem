@@ -14,10 +14,6 @@ public static class IdentitySeeder
         var userManager =
             serviceProvider.GetRequiredService<UserManager<Customer>>();
 
-        // =========================
-        // Seed Roles
-        // =========================
-
         string[] roles =
         {
             "Admin",
@@ -39,10 +35,6 @@ public static class IdentitySeeder
                 }
             }
         }
-
-        // =========================
-        // Seed Admin User
-        // =========================
 
         const string adminEmail = "admin@orderingsystem.com";
         const string adminPassword = "Admin@12345";
@@ -71,10 +63,6 @@ public static class IdentitySeeder
                     string.Join(", ", result.Errors.Select(x => x.Description)));
             }
         }
-
-        // =========================
-        // Assign Admin Role
-        // =========================
 
         if (!await userManager.IsInRoleAsync(admin, "Admin"))
         {

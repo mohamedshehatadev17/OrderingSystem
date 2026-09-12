@@ -163,7 +163,8 @@ namespace OrderingSystem.API.Controllers
                 Email = user.Email!,
                 AccessToken = accessToken,
                 ExpiresAtUtc = expiresAtUtc,
-                RefreshToken = refreshToken
+                RefreshToken = refreshToken,
+                Roles = roles.ToList()
             });
         }
         [HttpPost("refresh")]
