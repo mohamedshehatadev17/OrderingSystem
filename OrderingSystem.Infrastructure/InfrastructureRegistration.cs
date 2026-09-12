@@ -91,15 +91,11 @@ namespace OrderingSystem.Infrastructure
 
 
             // Repositories
-            services.AddScoped(
-                typeof(IGenericRepository<>),
-                typeof(GenericRepository<>));
-
+            services.AddScoped(typeof(IGenericRepository<>),typeof(GenericRepository<>));
             services.AddScoped<ITokenService, TokenService>();
-
-            services.AddScoped<
-                IRefreshTokenRepository,
-                RefreshTokenRepository>();
+            services.AddScoped<IRefreshTokenRepository,RefreshTokenRepository>();
+            services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<ICustomerRepository, CustomerRepository>();
 
             return services;
         }

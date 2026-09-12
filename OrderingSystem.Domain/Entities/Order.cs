@@ -11,10 +11,11 @@ namespace OrderingSystem.Domain.Entities
         public int Id { get; set; }
         [ForeignKey(nameof(Customer))]
         public int CustomerId { get; set; }
-        public DateTime OrderDate { get; set; }
+        public DateTime OrderDate { get; set; } = DateTime.Now;
+        public DateTime? UpdatedAt { get; set; }
         public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
         public decimal Amount { get; set; }
         public Customer Customer { get; set; }
-
+        public bool IsDeleted { get; set; } = false;
     }
 }

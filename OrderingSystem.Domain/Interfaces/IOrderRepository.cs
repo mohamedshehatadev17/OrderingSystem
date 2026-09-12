@@ -5,7 +5,7 @@ using System.Text;
 
 namespace OrderingSystem.Domain.Interfaces
 {
-    public interface ICustomerRepository : IGenericRepository<Customer>
+    public interface IOrderRepository : IGenericRepository<Order>
     {
     }
 }

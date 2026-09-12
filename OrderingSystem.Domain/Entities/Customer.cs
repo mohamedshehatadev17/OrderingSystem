@@ -8,7 +8,7 @@ namespace OrderingSystem.Domain.Entities
     {
         public string Name { get; set; }
 
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public DateTime? BannedUntil { get; set; }
 

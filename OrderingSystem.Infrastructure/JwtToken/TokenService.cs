@@ -19,7 +19,7 @@ namespace OrderingSystem.Infrastructure.JwtToken
             var claims = new List<Claim>
     {
         new(JwtRegisteredClaimNames.Sub, customer.Id.ToString()),
-        new(JwtRegisteredClaimNames.Email, customer.Email),
+        new(JwtRegisteredClaimNames.Email, customer.Email!),
         new(ClaimTypes.Name, customer.Name),
         new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
     };
