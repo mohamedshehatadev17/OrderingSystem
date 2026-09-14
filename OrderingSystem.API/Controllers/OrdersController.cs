@@ -40,6 +40,13 @@ namespace OrderingSystem.API.Controllers
                 Amount = o.Amount
             }));
         }
+        [Authorize(Roles = "Admin")]
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllOrders()
+        {
+            var orders = await _orderRepository.GetAllAsync(or =>!or.IsDeleted);
+            return Ok(orders);
+        }
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrder(int id)
         {

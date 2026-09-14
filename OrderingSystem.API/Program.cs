@@ -4,13 +4,21 @@ using OrderingSystem.Infrastructure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-// Add Swagger
+
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -29,23 +37,32 @@ builder.Services.AddSwaggerGen(options =>
             [new OpenApiSecuritySchemeReference("Bearer", document)] = []
         });
 });
-// Register infrastructure services
+
 builder.Services.RegisterInfrastructureServices(builder.Configuration);
 
 var app = builder.Build();
+
 using (var scope = app.Services.CreateScope())
 {
-    await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+    try
+    {
+        await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        var loggerFactory = scope.ServiceProvider.GetService(typeof(Microsoft.Extensions.Logging.ILoggerFactory)) as Microsoft.Extensions.Logging.ILoggerFactory;
+        var logger = loggerFactory?.CreateLogger(typeof(Program).FullName ?? "Program");
+        logger?.LogError(ex, "An error occurred while seeding identity data.");
+    }
 }
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-  {
-        app.MapOpenApi();
-  }
+
 app.UseSwagger();
 app.UseSwaggerUI();
-app.UseHttpsRedirection();
 
+app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
